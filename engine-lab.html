@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Engine Lab — Hammer Drive · Phased Units · X-Ray Car</title>
+<style>
+  :root{
+    --bg:#0a0f17; --panel:#0e1622; --panel-2:#101c2c; --grid:#16273b;
+    --ink:#cfe3f7; --ink-dim:#6f88a3; --line:#22354c;
+    --amber:#ff9d42; --amber-hot:#ffd08a; --cyan:#39d5d0;
+    --magN:#e2503f; --magS:#3a8fe0; --accent:#7bd0ff; --good:#54c98a; --violet:#d9b3ff;
+    font-synthesis:none;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--ink);
+    font-family:ui-monospace,"Cascadia Code","SF Mono",Menlo,Consolas,monospace;
+    overflow:hidden;display:flex;flex-direction:column}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:34px 34px;opacity:.32;mask-image:radial-gradient(ellipse at center,#000 55%,transparent 100%)}
+
+  header{position:relative;z-index:3;display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+    padding:11px 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0e1826,#0a0f17)}
+  .brand{display:flex;flex-direction:column;line-height:1.15}
+  .brand b{font-size:14px;letter-spacing:.22em;text-transform:uppercase}
+  .brand span{font-size:10px;letter-spacing:.26em;color:var(--ink-dim);text-transform:uppercase}
+  nav{display:flex;gap:6px;margin-left:auto;border:1px solid var(--line);border-radius:9px;padding:4px;background:#0a121c}
+  nav button{font-family:inherit;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);
+    background:transparent;border:0;padding:9px 15px;border-radius:6px;cursor:pointer;transition:.15s}
+  nav button:hover{color:#fff}
+  nav button.on{background:var(--accent);color:#04141f;font-weight:600}
+
+  main{position:relative;z-index:1;flex:1;min-height:0}
+  .page{position:absolute;inset:0;display:none}
+  .page.on{display:flex}
+
+  aside{width:270px;flex:none;border-right:1px solid var(--line);background:linear-gradient(180deg,#0d1521,#0a121c);
+    overflow-y:auto;padding:14px 14px 40px}
+  aside::-webkit-scrollbar{width:9px}
+  aside::-webkit-scrollbar-thumb{background:#1d3046;border-radius:8px;border:2px solid #0a121c}
+  .sec{margin-bottom:20px}
+  .sec h3{font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:var(--accent);
+    margin-bottom:10px;padding-bottom:6px;border-bottom:1px dashed var(--line)}
+
+  .stage{flex:1;min-width:0;position:relative}
+  canvas{display:block;width:100%;height:100%}
+  .bar{position:absolute;top:12px;left:12px;right:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;z-index:2}
+  .hint{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);font-size:10px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--ink-dim);background:rgba(8,14,22,.72);padding:6px 12px;border:1px solid var(--line);
+    border-radius:20px;pointer-events:none;text-align:center}
+
+  button.btn,.seg{font-family:inherit;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);
+    background:var(--panel-2);border:1px solid var(--line);padding:8px 13px;border-radius:7px;cursor:pointer;transition:.15s}
+  button.btn:hover,.seg:hover{border-color:var(--accent);color:#fff}
+  button.btn.run{background:linear-gradient(180deg,#3a2410,#241407);border-color:var(--amber);color:var(--amber-hot)}
+  .seggroup{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  .seggroup .seg{border:0;border-radius:0;background:transparent}
+  .seggroup .seg.on{background:var(--accent);color:#04141f;font-weight:600}
+  .ctl{display:flex;align-items:center;gap:8px;font-size:10px;letter-spacing:.1em;color:var(--ink-dim);text-transform:uppercase}
+  input[type=range]{-webkit-appearance:none;appearance:none;height:4px;width:110px;border-radius:3px;background:var(--line);outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;height:14px;width:14px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid #04141f}
+  input[type=range]::-moz-range-thumb{height:14px;width:14px;border:2px solid #04141f;border-radius:50%;background:var(--accent);cursor:pointer}
+
+  .layer{display:flex;align-items:center;gap:10px;padding:8px 9px;border-radius:7px;cursor:pointer;font-size:12px;transition:.12s;user-select:none}
+  .layer:hover{background:var(--panel-2)}
+  .layer .box{width:15px;height:15px;border-radius:4px;border:1px solid var(--line);flex:none;display:grid;place-items:center;background:#0a121c}
+  .layer.on .box{background:var(--accent);border-color:var(--accent)}
+  .layer.on .box::after{content:"";width:7px;height:4px;border-left:2px solid #04141f;border-bottom:2px solid #04141f;transform:translateY(-1px) rotate(-45deg)}
+  .layer .sw{width:9px;height:9px;border-radius:2px;flex:none}
+  .layer .tag{margin-left:auto;font-size:8px;letter-spacing:.1em;color:var(--good);border:1px solid #214a33;padding:2px 5px;border-radius:4px}
+
+  .tune{margin-bottom:14px}
+  .tune label{display:flex;justify-content:space-between;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:6px}
+  .tune label b{color:var(--ink)}
+  .tune input[type=range]{width:100%}
+  .stepper{display:flex;align-items:center;gap:8px}
+  .stepper button{padding:6px 12px;font-size:14px;line-height:1}
+  .stepper b{font-size:16px;min-width:24px;text-align:center}
+  .unit{display:grid;grid-template-columns:auto 1fr auto;gap:9px;align-items:center;padding:9px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;background:#0a121c}
+  .unit .dot{width:11px;height:11px;border-radius:3px}
+  .unit .meta b{font-size:11px}.unit .meta span{font-size:10px;color:var(--ink-dim)}
+  .unit .state{font-size:9px;letter-spacing:.05em;text-transform:uppercase;padding:3px 6px;border-radius:5px;background:#11202f;color:var(--ink-dim);white-space:nowrap}
+  .unit .state.fire{background:#3a1c0c;color:var(--amber-hot)}
+  .note{font-size:9px;color:var(--ink-dim);line-height:1.5;margin-top:6px}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><b>Engine Lab</b><span>your design · interactive teardown</span></div>
+  <nav id="nav">
+    <button data-p="hammer" class="on">Hammer Drive</button>
+    <button data-p="phased">Phased Units</button>
+    <button data-p="car">X-Ray Car</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ============ PAGE: HAMMER DRIVE ============ -->
+  <section class="page on" id="page-hammer">
+    <aside>
+      <div class="sec"><h3>The original design</h3>
+        <div class="note" style="font-size:11px;color:var(--ink)">
+          Your sledgehammer swings between two diesel chambers. Each explosion throws it to the
+          other side; a ratchet (torque-wrench principle) lets it grab the driveshaft on every
+          swing and spin it one way only.
+        </div>
+      </div>
+      <div class="sec"><h3>Layers</h3>
+        <div class="layer on" data-hl="combustion"><span class="box"></span><span class="sw" style="background:var(--amber)"></span>Combustion</div>
+        <div class="layer on" data-hl="ratchet"><span class="box"></span><span class="sw" style="background:var(--cyan)"></span>Ratchet teeth &amp; pawl</div>
+        <div class="layer on" data-hl="shaft"><span class="box"></span><span class="sw" style="background:var(--good)"></span>Driveshaft &amp; flywheel</div>
+        <div class="layer on" data-hl="arc"><span class="box"></span><span class="sw" style="background:var(--accent)"></span>Swing path</div>
+        <div class="layer on" data-hl="labels"><span class="box"></span><span class="sw" style="background:#9fb6cd"></span>Labels</div>
+      </div>
+      <div class="sec"><h3>Readout</h3>
+        <div class="note" style="font-size:11px;color:var(--ink)" id="hmReadout">shaft: 0 rev</div>
+        <div class="note">Notice the flywheel surges mid-swing and almost stalls at each end — that's the jerky power a ratchet gives. A flywheel smooths it.</div>
+      </div>
+    </aside>
+    <div class="stage">
+      <div class="bar">
+        <button class="btn run" id="hmPlay">❚❚ Pause</button>
+        <button class="btn" id="hmReset">⟲ Reset</button>
+        <div class="ctl">Speed <input id="hmSpeed" type="range" min="0.2" max="2.4" step="0.05" value="1"></div>
+      </div>
+      <canvas id="cvHammer"></canvas>
+      <div class="hint">Side view of your hammer engine — watch the chambers fire and the shaft jerk forward</div>
+    </div>
+  </section>
+
+  <!-- ============ PAGE: PHASED UNITS ============ -->
+  <section class="page" id="page-phased">
+    <aside>
+      <div class="sec"><h3>Layers</h3>
+        <div class="layer on" data-pl="combustion"><span class="box"></span><span class="sw" style="background:var(--amber)"></span>Combustion / firing</div>
+        <div class="layer on" data-pl="coils"><span class="box"></span><span class="sw" style="background:var(--cyan)"></span>Magnets &amp; coils</div>
+        <div class="layer on" data-pl="movers"><span class="box"></span><span class="sw" style="background:#9fb6cd"></span>Pistons / movers</div>
+        <div class="layer on" data-pl="labels"><span class="box"></span><span class="sw" style="background:var(--accent)"></span>Labels &amp; phase</div>
+        <div class="layer on" data-pl="wheel"><span class="box"></span><span class="sw" style="background:var(--good)"></span>Timing wheel (front)</div>
+        <div class="layer on" data-pl="graph"><span class="box"></span><span class="sw" style="background:var(--violet)"></span>Combined output graph</div>
+      </div>
+      <div class="sec"><h3>Tuning</h3>
+        <div class="tune"><label>Cylinders</label>
+          <div class="stepper"><button class="btn" id="cylMinus">−</button><b id="cylVal">4</b><button class="btn" id="cylPlus">+</button></div></div>
+        <div class="tune"><label>Phase spread <b id="spreadVal">100%</b></label>
+          <input id="spread" type="range" min="0" max="100" step="1" value="100">
+          <div class="note">0% = all fire together (lumpy). 100% = evenly staggered (smooth).</div></div>
+      </div>
+      <div class="sec"><h3>Units</h3><div id="unitList"></div></div>
+    </aside>
+    <div class="stage">
+      <div class="bar">
+        <button class="btn run" id="pPlay">❚❚ Pause</button>
+        <button class="btn" id="pReset">⟲ Reset</button>
+        <div class="seggroup" id="pView"><div class="seg on" data-v="side">Side view</div><div class="seg" data-v="front">Front view</div></div>
+        <div class="ctl">Speed <input id="pSpeed" type="range" min="0.15" max="2.5" step="0.05" value="1"></div>
+      </div>
+      <canvas id="cvPhased"></canvas>
+      <div class="hint" id="pHint">Side view — watch each mover bounce slightly out of step</div>
+    </div>
+  </section>
+
+  <!-- ============ PAGE: X-RAY CAR ============ -->
+  <section class="page" id="page-car">
+    <aside>
+      <div class="sec"><h3>Strip the car</h3>
+        <div class="note" style="font-size:11px;color:var(--ink)">Peel off body panels and interior. What's left is everything the car actually needs to move.</div>
+      </div>
+      <div class="sec"><h3>Remove these</h3>
+        <div class="layer on" data-cl="body"><span class="box"></span><span class="sw" style="background:#5fa8d8"></span>Body / frame</div>
+        <div class="layer on" data-cl="glass"><span class="box"></span><span class="sw" style="background:#bfeaff"></span>Glass / windows</div>
+        <div class="layer on" data-cl="doors"><span class="box"></span><span class="sw" style="background:#4f88b0"></span>Doors</div>
+        <div class="layer on" data-cl="seats"><span class="box"></span><span class="sw" style="background:#c08a5a"></span>Seats</div>
+        <div class="layer on" data-cl="lights"><span class="box"></span><span class="sw" style="background:#ffe08a"></span>Lights / grille</div>
+      </div>
+      <div class="sec"><h3>Core — keeps you moving</h3>
+        <div class="layer on" data-cl="engine"><span class="box"></span><span class="sw" style="background:var(--amber)"></span>Engine<span class="tag">core</span></div>
+        <div class="layer on" data-cl="trans"><span class="box"></span><span class="sw" style="background:var(--cyan)"></span>Transmission<span class="tag">core</span></div>
+        <div class="layer on" data-cl="shaft"><span class="box"></span><span class="sw" style="background:var(--good)"></span>Driveshaft + axles<span class="tag">core</span></div>
+        <div class="layer on" data-cl="wheels"><span class="box"></span><span class="sw" style="background:#9fb6cd"></span>Wheels<span class="tag">core</span></div>
+      </div>
+      <div class="sec"><h3>Quick</h3>
+        <button class="btn" id="strip" style="width:100%;margin-bottom:8px">Strip to essentials</button>
+        <button class="btn" id="restore" style="width:100%">Restore all</button>
+      </div>
+    </aside>
+    <div class="stage">
+      <div class="bar">
+        <div class="ctl">Speed <input id="carSpeed" type="range" min="0" max="160" step="1" value="48"></div>
+      </div>
+      <canvas id="cvCar"></canvas>
+      <div class="hint">Front view — turn off Body / Frame to see the powertrain that does the work</div>
+    </div>
+  </section>
+</main>
+
+<script>
+(function(){
+  "use strict";
+  const css=getComputedStyle(document.documentElement), C=k=>css.getPropertyValue(k).trim();
+  const COL={ink:C('--ink'),dim:C('--ink-dim'),line:C('--line'),amber:C('--amber'),amberHot:C('--amber-hot'),
+    cyan:C('--cyan'),magN:C('--magN'),magS:C('--magS'),accent:C('--accent'),good:C('--good'),violet:C('--violet')};
+  const HUES=[188,32,268,142,0,210], unitColor=i=>`hsl(${HUES[i%HUES.length]} 78% 62%)`;
+
+  // ---------- shared canvas helpers ----------
+  function mkCanvas(id){
+    const cv=document.getElementById(id), ctx=cv.getContext('2d');
+    return {cv,ctx,W:0,H:0};
+  }
+  function resize(o){
+    const DPR=Math.min(window.devicePixelRatio||1,2);
+    const r=o.cv.getBoundingClientRect();
+    if(r.width===0) return;
+    o.W=r.width;o.H=r.height;
+    o.cv.width=Math.round(o.W*DPR);o.cv.height=Math.round(o.H*DPR);
+    o.ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  function roundRect(ctx,x,y,w,h,r){r=Math.min(r,Math.abs(w)/2,Math.abs(h)/2);
+    ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+  function txt(ctx,s,x,y,size,col,align="left",sp=0){
+    ctx.fillStyle=col;ctx.font=`${size}px ui-monospace, Menlo, Consolas, monospace`;ctx.textBaseline="middle";
+    if(sp){ctx.textAlign="left";let t=0;for(const c of s)t+=ctx.measureText(c).width+sp;
+      let cx=align==="center"?x-t/2:align==="right"?x-t:x;for(const c of s){ctx.fillText(c,cx,y);cx+=ctx.measureText(c).width+sp;}}
+    else{ctx.textAlign=align;ctx.fillText(s,x,y);}}
+  function flame(ctx,cx,cy,sc,al){ctx.save();ctx.globalAlpha=al;ctx.translate(cx,cy);ctx.scale(sc,sc);
+    const g=ctx.createRadialGradient(0,4,1,0,0,16);g.addColorStop(0,COL.amberHot);g.addColorStop(.5,COL.amber);g.addColorStop(1,"rgba(255,90,40,0)");
+    ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(-8,8);ctx.quadraticCurveTo(-5,-6,0,-14);ctx.quadraticCurveTo(5,-6,8,8);ctx.quadraticCurveTo(0,12,-8,8);ctx.fill();ctx.restore();}
+
+  // ================= HAMMER PAGE =================
+  const Hm=mkCanvas('cvHammer');
+  const HM={playing:true,speed:1,t:0,shaft:0,layers:{combustion:1,ratchet:1,shaft:1,arc:1,labels:1}};
+  const SWING=0.62, OMEGA_H=2*Math.PI*0.34;
+  function drawHammer(){
+    const ctx=Hm.ctx,W=Hm.W,H=Hm.H;ctx.clearRect(0,0,W,H);
+    const px=W*0.40, py=H*0.30, L=Math.min(H*0.46,W*0.30);
+    const s=SWING*Math.sin(HM.t*OMEGA_H);
+    const sn=s/SWING; // -1..1
+    const hx=px+L*Math.sin(s), hy=py+L*Math.cos(s);
+    const leftX=px+L*Math.sin(-SWING),leftY=py+L*Math.cos(-SWING);
+    const rightX=px+L*Math.sin(SWING),rightY=py+L*Math.cos(SWING);
+    const fl=Math.pow(Math.max(0,-sn),4), fr=Math.pow(Math.max(0,sn),4);
+
+    // swing arc
+    if(HM.layers.arc){
+      ctx.beginPath();ctx.arc(px,py,L,Math.PI/2-SWING,Math.PI/2+SWING);
+      ctx.strokeStyle="rgba(123,208,255,.35)";ctx.lineWidth=1;ctx.setLineDash([5,5]);ctx.stroke();ctx.setLineDash([]);
+    }
+    // chambers
+    function chamber(x,y,fire){
+      ctx.save();ctx.translate(x,y);
+      roundRect(ctx,-30,-26,60,52,9);
+      ctx.fillStyle=HM.layers.combustion&&fire>0.2?`rgba(255,140,60,${0.15+0.55*fire})`:"rgba(16,28,44,.7)";
+      ctx.fill();ctx.strokeStyle=COL.line;ctx.lineWidth=1;ctx.stroke();ctx.restore();
+      if(HM.layers.combustion&&fire>0.25) flame(ctx,x,y,0.8+fire*0.8,Math.min(1,fire*1.3));
+    }
+    chamber(leftX,leftY+8,fl);
+    chamber(rightX,rightY+8,fr);
+
+    // arm + head
+    ctx.strokeStyle="#7c93ab";ctx.lineWidth=10;ctx.lineCap="round";
+    ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(hx,hy);ctx.stroke();
+    // head as sledge block rotated along arm
+    ctx.save();ctx.translate(hx,hy);ctx.rotate(s);
+    roundRect(ctx,-26,-20,52,40,7);
+    const hg=ctx.createLinearGradient(-26,0,26,0);hg.addColorStop(0,"#aebfd2");hg.addColorStop(1,"#7e94ab");
+    ctx.fillStyle=hg;ctx.fill();ctx.strokeStyle="#c3d3e6";ctx.lineWidth=1;ctx.stroke();ctx.restore();
+
+    // pivot hub + ratchet teeth (rotate by shaft -> one-way)
+    ctx.save();ctx.translate(px,py);
+    if(HM.layers.ratchet){
+      ctx.rotate(HM.shaft);
+      const teeth=12,rr=24;
+      ctx.beginPath();
+      for(let i=0;i<teeth;i++){
+        const a=i/teeth*Math.PI*2, a2=(i+0.5)/teeth*Math.PI*2;
+        ctx.lineTo(Math.cos(a)*rr,Math.sin(a)*rr);
+        ctx.lineTo(Math.cos(a2)*(rr-7),Math.sin(a2)*(rr-7));
+      }
+      ctx.closePath();ctx.fillStyle="rgba(57,213,208,.12)";ctx.fill();
+      ctx.strokeStyle="rgba(57,213,208,.7)";ctx.lineWidth=1.5;ctx.stroke();
+    }
+    ctx.restore();
+    // hub center
+    ctx.beginPath();ctx.arc(px,py,8,0,7);ctx.fillStyle="#1a2c40";ctx.fill();ctx.strokeStyle=COL.accent;ctx.lineWidth=1.5;ctx.stroke();
+    // pawl on the arm
+    if(HM.layers.ratchet){
+      ctx.save();ctx.translate(px,py);ctx.rotate(s);
+      ctx.beginPath();ctx.moveTo(0,-30);ctx.lineTo(8,-22);ctx.lineTo(-4,-20);ctx.closePath();
+      ctx.fillStyle="#8aa0b6";ctx.fill();ctx.restore();
+    }
+
+    // driveshaft + flywheel
+    if(HM.layers.shaft){
+      const fx=W*0.82, fy=py, R=Math.min(H*0.16,70);
+      ctx.strokeStyle="#5c7890";ctx.lineWidth=12;ctx.lineCap="round";
+      ctx.beginPath();ctx.moveTo(px+10,py);ctx.lineTo(fx,fy);ctx.stroke();
+      // flywheel
+      ctx.beginPath();ctx.arc(fx,fy,R,0,7);ctx.fillStyle="rgba(84,201,138,.08)";ctx.fill();
+      ctx.strokeStyle=COL.good;ctx.lineWidth=2;ctx.stroke();
+      ctx.save();ctx.translate(fx,fy);ctx.rotate(HM.shaft);
+      for(let i=0;i<6;i++){ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(i/6*7)*R,Math.sin(i/6*7)*R);
+        ctx.strokeStyle="rgba(84,201,138,.45)";ctx.lineWidth=2;ctx.stroke();}
+      ctx.beginPath();ctx.arc(R-8,0,5,0,7);ctx.fillStyle=COL.good;ctx.fill();
+      ctx.restore();
+      if(HM.layers.labels){txt(ctx,"FLYWHEEL",fx,fy+R+14,9,COL.dim,"center",1.5);
+        txt(ctx,"DRIVESHAFT",(px+fx)/2,py-16,9,COL.dim,"center",1.5);}
+    }
+
+    if(HM.layers.labels){
+      txt(ctx,"HAMMER HEAD",hx,hy+34,9,"#9fb6cd","center",1.2);
+      txt(ctx,"DIESEL CHAMBER",leftX,leftY+44,9,COL.dim,"center",1);
+      txt(ctx,"DIESEL CHAMBER",rightX,rightY+44,9,COL.dim,"center",1);
+      txt(ctx,"RATCHET / PIVOT",px,py-34,9,COL.cyan,"center",1.2);
+    }
+    document.getElementById('hmReadout').textContent="shaft: "+(HM.shaft/(2*Math.PI)).toFixed(1)+" rev";
+  }
+
+  // ================= PHASED PAGE =================
+  const Ph=mkCanvas('cvPhased');
+  const P={playing:true,speed:1,t:0,view:'side',numCyl:4,spread:1,
+    layers:{combustion:1,coils:1,movers:1,labels:1,wheel:1,graph:1}};
+  const OMEGA=2*Math.PI*0.42; const buf=[]; const BUFMAX=300;
+  const ph=i=>i*(2*Math.PI/P.numCyl)*P.spread;
+  const pos=i=>Math.sin(P.t*OMEGA+ph(i));
+  const out=i=>Math.pow(Math.abs(Math.sin(P.t*OMEGA+ph(i))),6);
+  const comb=()=>{let s=0;for(let i=0;i<P.numCyl;i++)s+=out(i);return s/P.numCyl;};
+
+  function drawPhased(){
+    const ctx=Ph.ctx,W=Ph.W,H=Ph.H;ctx.clearRect(0,0,W,H);
+    const gH=P.layers.graph?Math.min(150,H*0.26):0;
+    if(P.view==='side') pSide(ctx,W,H,gH); else pFront(ctx,W,H,gH);
+    if(P.layers.graph) pGraph(ctx,W,H,gH);
+  }
+  function pSide(ctx,W,H,gH){
+    const N=P.numCyl,top=40,bottom=H-gH-12,band=(bottom-top)/N,padX=70,cylW=W-padX*2;
+    for(let i=0;i<N;i++){
+      const cy=top+band*i+band/2,h=Math.min(band*0.62,54),x0=padX,x1=padX+cylW,chW=Math.min(94,cylW*0.16),col=unitColor(i);
+      ctx.strokeStyle=COL.line;ctx.lineWidth=1;roundRect(ctx,x0,cy-h/2,cylW,h,8);ctx.fillStyle="rgba(16,28,44,.5)";ctx.fill();ctx.stroke();
+      const p=pos(i),fl=Math.pow(Math.max(0,-p),3),fr=Math.pow(Math.max(0,p),3);
+      roundRect(ctx,x0,cy-h/2,chW,h,8);ctx.fillStyle=P.layers.combustion&&fl>0.2?`rgba(255,140,60,${0.15+0.5*fl})`:"rgba(12,20,30,.6)";ctx.fill();ctx.strokeStyle=COL.line;ctx.stroke();
+      roundRect(ctx,x1-chW,cy-h/2,chW,h,8);ctx.fillStyle=P.layers.combustion&&fr>0.2?`rgba(255,140,60,${0.15+0.5*fr})`:"rgba(12,20,30,.6)";ctx.fill();ctx.stroke();
+      const coilW=Math.min(148,cylW*0.26),coilX=x0+cylW/2-coilW/2;
+      if(P.layers.coils){roundRect(ctx,coilX,cy-h/2-4,coilW,h+8,7);ctx.fillStyle="rgba(57,213,208,.07)";ctx.fill();ctx.strokeStyle="rgba(57,213,208,.5)";ctx.stroke();
+        ctx.strokeStyle="rgba(57,213,208,.4)";ctx.lineWidth=2;for(let s=1;s<7;s++){const sx=coilX+coilW*s/7;ctx.beginPath();ctx.moveTo(sx,cy-h/2+2);ctx.lineTo(sx,cy+h/2-2);ctx.stroke();}}
+      const travel=cylW-chW*2-26,mx=x0+chW+13+travel/2+p*(travel/2);
+      if(P.layers.movers){ctx.fillStyle="#7c93ab";roundRect(ctx,x0+chW-2,cy-5,cylW-chW*2+4,10,3);ctx.fill();
+        const mw=56,mh=h*0.72;roundRect(ctx,mx-mw/2,cy-mh/2,mw,mh,5);ctx.fillStyle="#8ea4bb";ctx.fill();ctx.strokeStyle="#b9cadd";ctx.lineWidth=1;ctx.stroke();
+        if(P.layers.coils){const pm=4,pw=(mw-10)/pm;for(let m=0;m<pm;m++){ctx.fillStyle=m%2?COL.magS:COL.magN;roundRect(ctx,mx-mw/2+5+m*pw,cy-mh/2+4,pw-2,mh-8,2);ctx.fill();}}}
+      if(P.layers.combustion){if(fl>0.25)flame(ctx,x0+chW-16,cy,0.7+fl*0.7,Math.min(1,fl*1.3));if(fr>0.25)flame(ctx,x1-chW+16,cy,0.7+fr*0.7,Math.min(1,fr*1.3));}
+      if(P.layers.labels){ctx.fillStyle=col;roundRect(ctx,x0-58,cy-9,46,18,4);ctx.fill();txt(ctx,"U"+(i+1),x0-35,cy,11,"#06121c","center");
+        txt(ctx,Math.round((ph(i)*180/Math.PI)%360)+"°",x1+8,cy,11,COL.dim,"left");}
+    }
+    if(P.layers.labels){txt(ctx,"LEFT CHAMBER",padX,24,9,COL.dim,"left",1.5);txt(ctx,"RIGHT CHAMBER",W-padX,24,9,COL.dim,"right",1.5);}
+  }
+  function pFront(ctx,W,H,gH){
+    const N=P.numCyl,top=46,bottom=H-gH-16,midY=(top+bottom)/2,colX=W*0.27,colTop=top+6,colBot=bottom-6,slotH=(colBot-colTop)/N,r=Math.min(slotH*0.36,30);
+    for(let i=0;i<N;i++){const cyy=colTop+slotH*i+slotH/2,o=out(i),col=unitColor(i);
+      ctx.beginPath();ctx.arc(colX,cyy,r,0,7);ctx.fillStyle="#0c1622";ctx.fill();
+      if(P.layers.combustion){const g=ctx.createRadialGradient(colX,cyy,1,colX,cyy,r);g.addColorStop(0,`rgba(255,180,90,${0.15+0.8*o})`);g.addColorStop(1,"rgba(255,140,60,0)");ctx.fillStyle=g;ctx.fill();}
+      ctx.strokeStyle=col;ctx.lineWidth=2;ctx.stroke();
+      if(P.layers.labels){const a=P.t*OMEGA+ph(i);ctx.beginPath();ctx.arc(colX+Math.cos(a)*(r-6),cyy+Math.sin(a)*(r-6),3,0,7);ctx.fillStyle=COL.accent;ctx.fill();txt(ctx,"U"+(i+1),colX-r-12,cyy,11,col,"right");}}
+    if(P.layers.labels)txt(ctx,"BORES (END-ON)",colX,colTop-16,9,COL.dim,"center",1.5);
+    if(P.layers.wheel){const wx=W*0.66,wy=midY,R=Math.min((bottom-top)/2-16,W*0.16);
+      ctx.beginPath();ctx.arc(wx,wy,R,0,7);ctx.strokeStyle=COL.line;ctx.lineWidth=1.5;ctx.stroke();
+      ctx.beginPath();ctx.arc(wx,wy,R*0.62,0,7);ctx.strokeStyle="rgba(34,53,76,.6)";ctx.stroke();
+      [Math.PI/2,-Math.PI/2].forEach(a=>{ctx.beginPath();ctx.moveTo(wx+Math.cos(a)*(R-9),wy+Math.sin(a)*(R-9));ctx.lineTo(wx+Math.cos(a)*(R+9),wy+Math.sin(a)*(R+9));ctx.strokeStyle=COL.amber;ctx.lineWidth=2;ctx.stroke();});
+      txt(ctx,"FIRE",wx,wy-R-12,9,COL.amber,"center",1.5);txt(ctx,"FIRE",wx,wy+R+12,9,COL.amber,"center",1.5);
+      for(let i=0;i<N;i++){const a=P.t*OMEGA+ph(i),dx=wx+Math.cos(a)*R,dy=wy+Math.sin(a)*R,o=out(i);
+        ctx.beginPath();ctx.moveTo(wx,wy);ctx.lineTo(dx,dy);ctx.strokeStyle="rgba(123,208,255,.18)";ctx.lineWidth=1;ctx.stroke();
+        ctx.beginPath();ctx.arc(dx,dy,6+o*4,0,7);ctx.fillStyle=unitColor(i);ctx.fill();ctx.strokeStyle="#04141f";ctx.lineWidth=2;ctx.stroke();}
+      if(P.layers.labels)txt(ctx,"TIMING WHEEL",wx,wy-R-30,9,COL.dim,"center",1.5);}
+    txt(ctx,"COMBINED OUTPUT  "+(comb()*100).toFixed(0)+"%",W*0.66,bottom-2,10,COL.good,"center",1);
+  }
+  function pGraph(ctx,W,H,gH){
+    if(gH<=0)return;const N=P.numCyl,top=H-gH+6,bot=H-10,left=18,right=W-18,base=bot,span=bot-top;
+    ctx.strokeStyle=COL.line;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(left,base);ctx.lineTo(right,base);ctx.stroke();
+    txt(ctx,"COMBINED POWER PULSE   faint = each unit · bold = total",left,top-2,9,COL.dim,"left",1);
+    const n=buf.length;if(n<2)return;const dx=(right-left)/(BUFMAX-1);
+    for(let i=0;i<N;i++){ctx.beginPath();for(let k=0;k<n;k++){const x=left+(BUFMAX-n+k)*dx,y=base-buf[k].u[i]*span*0.9;k?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.strokeStyle=unitColor(i);ctx.globalAlpha=0.28;ctx.lineWidth=1;ctx.stroke();ctx.globalAlpha=1;}
+    ctx.beginPath();for(let k=0;k<n;k++){const x=left+(BUFMAX-n+k)*dx,y=base-buf[k].c*span*0.9;k?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.strokeStyle=COL.violet;ctx.lineWidth=2.4;ctx.stroke();
+  }
+  // units list
+  const unitListEl=document.getElementById('unitList');let unitEls=[];
+  function buildUnits(){unitListEl.innerHTML='';unitEls=[];for(let i=0;i<P.numCyl;i++){const deg=Math.round((ph(i)*180/Math.PI)%360);
+    const el=document.createElement('div');el.className='unit';
+    el.innerHTML=`<span class="dot" style="background:${unitColor(i)}"></span><span class="meta"><b>Unit ${i+1}</b><br><span>phase ${deg}°</span></span><span class="state">idle</span>`;
+    unitListEl.appendChild(el);unitEls.push(el.querySelector('.state'));}}
+  let lt=0;
+  function updUnits(){if(++lt%4)return;for(let i=0;i<P.numCyl;i++){const p=pos(i),st=unitEls[i];if(!st)continue;
+    if(p<-0.72){st.textContent="◄ firing L";st.classList.add('fire');}else if(p>0.72){st.textContent="firing R ►";st.classList.add('fire');}
+    else{st.textContent=p<0?"← compress L":"compress R →";st.classList.remove('fire');}}}
+
+  // ================= CAR PAGE =================
+  const Ca=mkCanvas('cvCar');
+  const CAR={mph:48,t:0,wheel:0,road:0,layers:{body:1,glass:1,doors:1,seats:1,lights:1,engine:1,trans:1,shaft:1,wheels:1}};
+  function drawCar(){
+    const ctx=Ca.ctx,W=Ca.W,H=Ca.H;ctx.clearRect(0,0,W,H);
+    const cx=W*0.5, ground=H*0.84;
+    // road
+    const g=ctx.createLinearGradient(0,H*0.42,0,H);g.addColorStop(0,"#0c1320");g.addColorStop(1,"#070b12");
+    ctx.fillStyle=g;ctx.fillRect(0,H*0.42,W,H);
+    ctx.strokeStyle="rgba(34,53,76,.7)";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,H*0.42);ctx.lineTo(W,H*0.42);ctx.stroke();
+    // perspective road lines + moving dashes
+    ctx.strokeStyle="rgba(123,208,255,.18)";ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(cx-W*0.5,H);ctx.lineTo(cx-W*0.06,H*0.42);ctx.moveTo(cx+W*0.5,H);ctx.lineTo(cx+W*0.06,H*0.42);ctx.stroke();
+    ctx.strokeStyle="rgba(255,208,140,.5)";ctx.lineWidth=3;ctx.setLineDash([26,22]);ctx.lineDashOffset=-CAR.road;
+    ctx.beginPath();ctx.moveTo(cx,H*0.44);ctx.lineTo(cx,H);ctx.stroke();ctx.setLineDash([]);
+
+    const bodyHalf=W*0.215, roofHalf=W*0.115, baseY=ground, roofY=H*0.30, shoulderY=H*0.52;
+
+    function wheel(wx,wy,r,dim){
+      ctx.beginPath();ctx.arc(wx,wy,r,0,7);ctx.fillStyle=dim?"#0b121b":"#11161f";ctx.fill();
+      ctx.strokeStyle=dim?"#27384d":"#3a4d63";ctx.lineWidth=dim?2:4;ctx.stroke();
+      ctx.beginPath();ctx.arc(wx,wy,r*0.42,0,7);ctx.fillStyle="#1c2735";ctx.fill();ctx.strokeStyle="#52677d";ctx.lineWidth=2;ctx.stroke();
+      ctx.save();ctx.translate(wx,wy);ctx.rotate(CAR.wheel);
+      for(let i=0;i<5;i++){ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(i/5*7)*r*0.4,Math.sin(i/5*7)*r*0.4);ctx.strokeStyle="#6c8198";ctx.lineWidth=2;ctx.stroke();}
+      ctx.restore();
+    }
+    // rear wheels (hint, behind) 
+    if(CAR.layers.wheels){wheel(cx-W*0.13,baseY-H*0.05,H*0.075,true);wheel(cx+W*0.13,baseY-H*0.05,H*0.075,true);}
+
+    // chassis floor (subtle)
+    if(CAR.layers.shaft){
+      ctx.strokeStyle="rgba(84,201,138,.25)";ctx.lineWidth=1;
+      roundRect(ctx,cx-bodyHalf*0.8,shoulderY+H*0.02,bodyHalf*1.6,baseY-shoulderY-H*0.04,10);ctx.stroke();
+    }
+
+    // front axle
+    if(CAR.layers.shaft){ctx.strokeStyle="#8aa0b6";ctx.lineWidth=7;ctx.lineCap="round";
+      ctx.beginPath();ctx.moveTo(cx-bodyHalf,baseY);ctx.lineTo(cx+bodyHalf,baseY);ctx.stroke();}
+
+    // driveshaft (receding) : engine -> rear diff, drawn tapering up the centerline
+    if(CAR.layers.shaft){
+      ctx.strokeStyle=COL.good;ctx.lineWidth=8;ctx.lineCap="round";
+      ctx.beginPath();ctx.moveTo(cx,baseY-H*0.04);ctx.lineTo(cx,shoulderY+H*0.05);ctx.stroke();
+      // u-joints
+      [baseY-H*0.04,shoulderY+H*0.05].forEach(y=>{ctx.beginPath();ctx.arc(cx,y,5,0,7);ctx.fillStyle="#bdf0d3";ctx.fill();});
+      // rear diff
+      roundRect(ctx,cx-W*0.05,shoulderY+H*0.02,W*0.10,H*0.05,5);ctx.fillStyle="rgba(84,201,138,.18)";ctx.fill();ctx.strokeStyle=COL.good;ctx.lineWidth=1.5;ctx.stroke();
+      txt(ctx,"DRIVESHAFT → REAR AXLE",cx+10,(baseY+shoulderY)/2,9,COL.good,"left",0.5);
+    }
+
+    // transmission
+    if(CAR.layers.trans){roundRect(ctx,cx-W*0.045,baseY-H*0.16,W*0.09,H*0.07,6);ctx.fillStyle="rgba(57,213,208,.15)";ctx.fill();ctx.strokeStyle=COL.cyan;ctx.lineWidth=1.5;ctx.stroke();
+      txt(ctx,"TRANS",cx,baseY-H*0.125,9,COL.cyan,"center",1);}
+
+    // engine block (center front)
+    if(CAR.layers.engine){
+      roundRect(ctx,cx-W*0.085,baseY-H*0.30,W*0.17,H*0.15,7);
+      const eg=ctx.createLinearGradient(0,baseY-H*0.30,0,baseY-H*0.15);eg.addColorStop(0,"rgba(255,157,66,.25)");eg.addColorStop(1,"rgba(255,157,66,.08)");
+      ctx.fillStyle=eg;ctx.fill();ctx.strokeStyle=COL.amber;ctx.lineWidth=1.5;ctx.stroke();
+      ctx.strokeStyle="rgba(255,157,66,.5)";ctx.lineWidth=1;
+      for(let i=1;i<4;i++){const ex=cx-W*0.085+W*0.17*i/4;ctx.beginPath();ctx.moveTo(ex,baseY-H*0.29);ctx.lineTo(ex,baseY-H*0.16);ctx.stroke();}
+      txt(ctx,"ENGINE",cx,baseY-H*0.225,10,COL.amberHot,"center",1.5);
+    }
+
+    // seats
+    if(CAR.layers.seats){[-1,1].forEach(s=>{const sx=cx+s*W*0.075;
+      roundRect(ctx,sx-W*0.035,roofY+H*0.06,W*0.07,H*0.14,6);ctx.fillStyle="rgba(192,138,90,.3)";ctx.fill();ctx.strokeStyle="#c08a5a";ctx.lineWidth=1.5;ctx.stroke();
+      roundRect(ctx,sx-W*0.035,roofY+H*0.16,W*0.07,H*0.05,5);ctx.fillStyle="rgba(192,138,90,.3)";ctx.fill();ctx.stroke();});}
+
+    // front wheels (prominent)
+    if(CAR.layers.wheels){wheel(cx-bodyHalf,baseY,H*0.10,false);wheel(cx+bodyHalf,baseY,H*0.10,false);}
+
+    // body shell
+    if(CAR.layers.body){
+      ctx.beginPath();
+      ctx.moveTo(cx-bodyHalf,baseY-H*0.02);
+      ctx.lineTo(cx-bodyHalf,shoulderY);
+      ctx.quadraticCurveTo(cx-bodyHalf,roofY+H*0.04,cx-roofHalf,roofY);
+      ctx.quadraticCurveTo(cx,roofY-H*0.03,cx+roofHalf,roofY);
+      ctx.quadraticCurveTo(cx+bodyHalf,roofY+H*0.04,cx+bodyHalf,shoulderY);
+      ctx.lineTo(cx+bodyHalf,baseY-H*0.02);
+      ctx.quadraticCurveTo(cx,baseY+H*0.01,cx-bodyHalf,baseY-H*0.02);
+      ctx.closePath();
+      ctx.fillStyle="rgba(95,168,216,.13)";ctx.fill();
+      ctx.strokeStyle="rgba(95,168,216,.85)";ctx.lineWidth=2;ctx.stroke();
+      // hood line
+      ctx.beginPath();ctx.moveTo(cx-bodyHalf+8,shoulderY+H*0.04);ctx.lineTo(cx+bodyHalf-8,shoulderY+H*0.04);ctx.strokeStyle="rgba(95,168,216,.4)";ctx.lineWidth=1;ctx.stroke();
+      if(CAR.layers.doors){[-1,1].forEach(s=>{ctx.beginPath();ctx.moveTo(cx+s*bodyHalf*0.55,shoulderY+H*0.05);ctx.lineTo(cx+s*bodyHalf*0.55,baseY-H*0.03);ctx.strokeStyle="rgba(79,136,176,.7)";ctx.lineWidth=1.5;ctx.stroke();});}
+    }
+    // glass
+    if(CAR.layers.glass && CAR.layers.body){
+      ctx.beginPath();
+      ctx.moveTo(cx-roofHalf+10,roofY+H*0.02);ctx.lineTo(cx+roofHalf-10,roofY+H*0.02);
+      ctx.lineTo(cx+roofHalf*0.7,shoulderY-H*0.02);ctx.lineTo(cx-roofHalf*0.7,shoulderY-H*0.02);ctx.closePath();
+      ctx.fillStyle="rgba(191,234,255,.22)";ctx.fill();ctx.strokeStyle="rgba(191,234,255,.5)";ctx.lineWidth=1;ctx.stroke();
+    }
+    // lights + grille
+    if(CAR.layers.lights && CAR.layers.body){
+      [-1,1].forEach(s=>{roundRect(ctx,cx+s*bodyHalf*0.62-W*0.03,baseY-H*0.13,W*0.06,H*0.04,6);ctx.fillStyle="rgba(255,224,138,.8)";ctx.fill();});
+      roundRect(ctx,cx-W*0.06,baseY-H*0.10,W*0.12,H*0.05,4);ctx.fillStyle="rgba(20,30,44,.8)";ctx.fill();ctx.strokeStyle="rgba(123,208,255,.4)";ctx.lineWidth=1;ctx.stroke();
+      for(let i=1;i<4;i++){const gx=cx-W*0.06+W*0.12*i/4;ctx.beginPath();ctx.moveTo(gx,baseY-H*0.10);ctx.lineTo(gx,baseY-H*0.05);ctx.strokeStyle="rgba(123,208,255,.4)";ctx.stroke();}
+    }
+
+    // speedometer HUD
+    const mph=Math.round(CAR.mph);
+    txt(ctx,String(mph).padStart(3,'0'),W-24,40,40,COL.accent,"right");
+    txt(ctx,"MPH",W-24,68,11,COL.dim,"right",2);
+    // essential / stripped status
+    const stripped=!(CAR.layers.body||CAR.layers.seats||CAR.layers.glass);
+    txt(ctx, stripped?"ROLLING CHASSIS — bare essentials":"FULL CAR", 24, H-24, 11, stripped?COL.good:COL.dim, "left",1.2);
+  }
+
+  // ================= LOOP =================
+  let active='hammer';
+  let last=performance.now();
+  function loop(now){
+    const dt=Math.min((now-last)/1000,0.05);last=now;
+    if(HM.playing){HM.t+=dt*HM.speed;HM.shaft+=dt*HM.speed*2.4*Math.abs(Math.cos(HM.t*OMEGA_H));}
+    if(P.playing){P.t+=dt*P.speed;const u=[];for(let i=0;i<P.numCyl;i++)u.push(out(i));buf.push({u,c:comb()});while(buf.length>BUFMAX)buf.shift();}
+    CAR.t+=dt;const sp=CAR.mph/60;CAR.wheel+=dt*sp*6;CAR.road+=dt*sp*220;
+    if(active==='hammer')drawHammer();
+    else if(active==='phased'){drawPhased();updUnits();}
+    else drawCar();
+    requestAnimationFrame(loop);
+  }
+
+  // ================= NAV =================
+  function show(p){
+    active=p;
+    document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.p===p));
+    document.querySelectorAll('.page').forEach(s=>s.classList.toggle('on',s.id==='page-'+p));
+    const map={hammer:Hm,phased:Ph,car:Ca};
+    requestAnimationFrame(()=>resize(map[p]));
+  }
+  document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>show(b.dataset.p));
+  window.addEventListener('resize',()=>{const map={hammer:Hm,phased:Ph,car:Ca};resize(map[active]);});
+
+  // ================= CONTROLS: hammer =================
+  const hmPlay=document.getElementById('hmPlay');
+  hmPlay.onclick=()=>{HM.playing=!HM.playing;hmPlay.textContent=HM.playing?"❚❚ Pause":"▶ Play";hmPlay.classList.toggle('run',HM.playing);};
+  document.getElementById('hmReset').onclick=()=>{HM.t=0;HM.shaft=0;};
+  document.getElementById('hmSpeed').oninput=e=>HM.speed=parseFloat(e.target.value);
+  document.querySelectorAll('[data-hl]').forEach(l=>l.onclick=()=>{const k=l.dataset.hl;HM.layers[k]=!HM.layers[k];l.classList.toggle('on',HM.layers[k]);});
+
+  // ================= CONTROLS: phased =================
+  const pPlay=document.getElementById('pPlay');
+  pPlay.onclick=()=>{P.playing=!P.playing;pPlay.textContent=P.playing?"❚❚ Pause":"▶ Play";pPlay.classList.toggle('run',P.playing);};
+  document.getElementById('pReset').onclick=()=>{P.t=0;buf.length=0;};
+  document.getElementById('pSpeed').oninput=e=>P.speed=parseFloat(e.target.value);
+  document.querySelectorAll('#pView .seg').forEach(s=>s.onclick=()=>{document.querySelectorAll('#pView .seg').forEach(x=>x.classList.remove('on'));s.classList.add('on');P.view=s.dataset.v;
+    document.getElementById('pHint').textContent=P.view==='side'?"Side view — watch each mover bounce slightly out of step":"Front view — dots spread around the wheel = the phase offset";});
+  document.querySelectorAll('[data-pl]').forEach(l=>l.onclick=()=>{const k=l.dataset.pl;P.layers[k]=!P.layers[k];l.classList.toggle('on',P.layers[k]);});
+  const cylVal=document.getElementById('cylVal');
+  function setCyl(n){P.numCyl=Math.max(2,Math.min(6,n));cylVal.textContent=P.numCyl;buf.length=0;buildUnits();}
+  document.getElementById('cylMinus').onclick=()=>setCyl(P.numCyl-1);
+  document.getElementById('cylPlus').onclick=()=>setCyl(P.numCyl+1);
+  const spreadVal=document.getElementById('spreadVal');
+  document.getElementById('spread').oninput=e=>{P.spread=parseInt(e.target.value)/100;spreadVal.textContent=e.target.value+"%";buf.length=0;buildUnits();};
+
+  // ================= CONTROLS: car =================
+  document.getElementById('carSpeed').oninput=e=>CAR.mph=parseInt(e.target.value);
+  document.querySelectorAll('[data-cl]').forEach(l=>l.onclick=()=>{const k=l.dataset.cl;CAR.layers[k]=!CAR.layers[k];l.classList.toggle('on',CAR.layers[k]);});
+  function setLayer(k,v){CAR.layers[k]=v;const el=document.querySelector(`[data-cl="${k}"]`);if(el)el.classList.toggle('on',v);}
+  document.getElementById('strip').onclick=()=>{['body','glass','doors','seats','lights'].forEach(k=>setLayer(k,false));};
+  document.getElementById('restore').onclick=()=>{Object.keys(CAR.layers).forEach(k=>setLayer(k,true));};
+
+  // ================= BOOT =================
+  buildUnits();
+  resize(Hm);resize(Ph);resize(Ca);
+  show('hammer');
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
