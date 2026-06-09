@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Engine Lab — Hammer Engine · X-Ray Pickup</title>
+<style>
+  :root{--bg:#0a0f17;--panel:#0e1622;--panel-2:#101c2c;--grid:#16273b;--ink:#cfe3f7;--ink-dim:#6f88a3;--line:#22354c;--amber:#ff9d42;--amber-hot:#ffd08a;--cyan:#39d5d0;--accent:#7bd0ff;--good:#54c98a;--violet:#d9b3ff;font-synthesis:none}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:ui-monospace,"Cascadia Code","SF Mono",Menlo,Consolas,monospace;overflow:hidden;display:flex;flex-direction:column}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:34px 34px;opacity:.3;mask-image:radial-gradient(ellipse at center,#000 55%,transparent 100%)}
+  header{position:relative;z-index:3;display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:11px 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0e1826,#0a0f17)}
+  .brand{display:flex;flex-direction:column;line-height:1.15}
+  .brand b{font-size:14px;letter-spacing:.22em;text-transform:uppercase}
+  .brand span{font-size:10px;letter-spacing:.26em;color:var(--ink-dim);text-transform:uppercase}
+  nav{display:flex;gap:6px;margin-left:auto;border:1px solid var(--line);border-radius:9px;padding:4px;background:#0a121c}
+  nav button{font-family:inherit;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);background:transparent;border:0;padding:9px 15px;border-radius:6px;cursor:pointer;transition:.15s}
+  nav button:hover{color:#fff}
+  nav button.on{background:var(--accent);color:#04141f;font-weight:600}
+  main{position:relative;z-index:1;flex:1;min-height:0}
+  .page{position:absolute;inset:0;display:none}
+  .page.on{display:flex}
+  aside{width:272px;flex:none;border-right:1px solid var(--line);background:linear-gradient(180deg,#0d1521,#0a121c);overflow-y:auto;padding:14px 14px 40px}
+  aside::-webkit-scrollbar{width:9px}
+  aside::-webkit-scrollbar-thumb{background:#1d3046;border-radius:8px;border:2px solid #0a121c}
+  .sec{margin-bottom:20px}
+  .sec h3{font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;padding-bottom:6px;border-bottom:1px dashed var(--line)}
+  .stage{flex:1;min-width:0;position:relative}
+  canvas{display:block;width:100%;height:100%}
+  .bar{position:absolute;top:12px;left:12px;right:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;z-index:2}
+  .hint{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim);background:rgba(8,14,22,.72);padding:6px 12px;border:1px solid var(--line);border-radius:20px;pointer-events:none;text-align:center;max-width:90%}
+  button.btn,.seg{font-family:inherit;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);background:var(--panel-2);border:1px solid var(--line);padding:8px 13px;border-radius:7px;cursor:pointer;transition:.15s}
+  button.btn:hover,.seg:hover{border-color:var(--accent);color:#fff}
+  button.btn.run{background:linear-gradient(180deg,#3a2410,#241407);border-color:var(--amber);color:var(--amber-hot)}
+  .seggroup{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  .seggroup .seg{border:0;border-radius:0;background:transparent}
+  .seggroup .seg.on{background:var(--accent);color:#04141f;font-weight:600}
+  .ctl{display:flex;align-items:center;gap:8px;font-size:10px;letter-spacing:.1em;color:var(--ink-dim);text-transform:uppercase}
+  input[type=range]{-webkit-appearance:none;appearance:none;height:4px;width:130px;border-radius:3px;background:var(--line);outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;height:14px;width:14px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid #04141f}
+  input[type=range]::-moz-range-thumb{height:14px;width:14px;border:2px solid #04141f;border-radius:50%;background:var(--accent);cursor:pointer}
+  .layer{display:flex;align-items:center;gap:10px;padding:8px 9px;border-radius:7px;cursor:pointer;font-size:12px;transition:.12s;user-select:none}
+  .layer:hover{background:var(--panel-2)}
+  .layer .box{width:15px;height:15px;border-radius:4px;border:1px solid var(--line);flex:none;display:grid;place-items:center;background:#0a121c}
+  .layer.on .box{background:var(--accent);border-color:var(--accent)}
+  .layer.on .box::after{content:"";width:7px;height:4px;border-left:2px solid #04141f;border-bottom:2px solid #04141f;transform:translateY(-1px) rotate(-45deg)}
+  .layer .sw{width:9px;height:9px;border-radius:2px;flex:none}
+  .layer .tag{margin-left:auto;font-size:8px;letter-spacing:.1em;color:var(--good);border:1px solid #214a33;padding:2px 5px;border-radius:4px}
+  .tune{margin-bottom:14px}
+  .tune label{display:flex;justify-content:space-between;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:6px}
+  .stepper{display:flex;align-items:center;gap:8px}
+  .stepper button{padding:6px 12px;font-size:14px;line-height:1}
+  .stepper b{font-size:16px;min-width:24px;text-align:center}
+  .note{font-size:9px;color:var(--ink-dim);line-height:1.5;margin-top:6px}
+  .perf{display:flex;flex-direction:column;gap:8px}
+  .perf .row{display:flex;justify-content:space-between;align-items:baseline;border:1px solid var(--line);border-radius:7px;padding:8px 10px;background:#0a121c}
+  .perf .row span{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim)}
+  .perf .row b{font-size:15px}
+  .perf .row b.big{font-size:20px;color:var(--accent)}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><b>Engine Lab</b><span>hammer engine · x-ray pickup</span></div>
+  <nav id="nav"><button data-p="hammer" class="on">Hammer Engine</button><button data-p="truck">X-Ray Pickup</button></nav>
+</header>
+<main>
+  <section class="page on" id="page-hammer">
+    <aside>
+      <div class="sec"><h3>Your engine</h3><div class="note" style="font-size:11px;color:var(--ink)">Curved hammers swing in arc channels between diesel chambers. Each ratchet grabs the shaft on <b>every other</b> swing. Add pistons and phase them to fill the gaps and smooth the spin.</div></div>
+      <div class="sec"><h3>View</h3><div class="seggroup" id="hmView" style="width:100%"><div class="seg on" data-v="front" style="flex:1">Front</div><div class="seg" data-v="side" style="flex:1">Side</div></div><div class="note">Front = one unit, driveshaft behind. Side = all pistons along the shaft (hammers turned 90°).</div></div>
+      <div class="sec"><h3>Pistons</h3><div class="stepper"><button class="btn" id="hmMinus">−</button><b id="hmPist">3</b><button class="btn" id="hmPlus">+</button></div><div class="note">More pistons → smoother shaft. Watch the flywheel steady out in Side view.</div></div>
+      <div class="sec"><h3>Layers</h3>
+        <div class="layer on" data-hl="combustion"><span class="box"></span><span class="sw" style="background:var(--amber)"></span>Combustion</div>
+        <div class="layer on" data-hl="ratchet"><span class="box"></span><span class="sw" style="background:var(--cyan)"></span>Ratchet &amp; pawl</div>
+        <div class="layer on" data-hl="shaft"><span class="box"></span><span class="sw" style="background:var(--good)"></span>Driveshaft / flywheel</div>
+        <div class="layer on" data-hl="arc"><span class="box"></span><span class="sw" style="background:var(--accent)"></span>Arc channel</div>
+        <div class="layer on" data-hl="labels"><span class="box"></span><span class="sw" style="background:#9fb6cd"></span>Labels</div>
+      </div>
+      <div class="sec"><h3>Readout</h3><div class="note" style="font-size:11px;color:var(--ink)" id="hmRead">shaft: 0.0 rev</div></div>
+    </aside>
+    <div class="stage">
+      <div class="bar"><button class="btn run" id="hmPlay">❚❚ Pause</button><button class="btn" id="hmReset">⟲ Reset</button><div class="ctl">Speed <input id="hmSpeed" type="range" min="0.2" max="8" step="0.1" value="1"></div></div>
+      <canvas id="cvHammer"></canvas>
+      <div class="hint" id="hmHint">Front view — the curved head rides the arc; the shaft is the circle behind it</div>
+    </div>
+  </section>
+  <section class="page" id="page-truck">
+    <aside>
+      <div class="sec"><h3>Strip the truck</h3><div class="note" style="font-size:11px;color:var(--ink)">Peel the body off. What's left is your engine, the spinning driveshaft, and the wheels.</div></div>
+      <div class="sec"><h3>Remove these</h3>
+        <div class="layer on" data-cl="body"><span class="box"></span><span class="sw" style="background:#6f9fc4"></span>Body / frame</div>
+        <div class="layer on" data-cl="glass"><span class="box"></span><span class="sw" style="background:#bfeaff"></span>Glass</div>
+        <div class="layer on" data-cl="lights"><span class="box"></span><span class="sw" style="background:#ffe08a"></span>Lights / grille</div>
+        <div class="layer on" data-cl="engineTop"><span class="box"></span><span class="sw" style="background:var(--amber-hot)"></span>Engine top (cover)</div>
+      </div>
+      <div class="sec"><h3>Core — keeps you moving</h3>
+        <div class="layer on" data-cl="engine"><span class="box"></span><span class="sw" style="background:var(--amber)"></span>Engine<span class="tag">core</span></div>
+        <div class="layer on" data-cl="shaft"><span class="box"></span><span class="sw" style="background:var(--good)"></span>Driveshaft + axles<span class="tag">core</span></div>
+        <div class="layer on" data-cl="wheels"><span class="box"></span><span class="sw" style="background:#9fb6cd"></span>Wheels<span class="tag">core</span></div>
+        <button class="btn" id="strip" style="width:100%;margin:8px 0 6px">Strip to essentials</button>
+        <button class="btn" id="restore" style="width:100%">Restore all</button>
+      </div>
+      <div class="sec"><h3>Pistons</h3><div class="stepper"><button class="btn" id="tkMinus">−</button><b id="tkPist">3</b><button class="btn" id="tkPlus">+</button></div><div class="note">Fewer pistons = jerkier go-stop-go ride. Add pistons to smooth it out.</div></div>
+      <div class="sec"><h3>Performance <span style="font-size:8px;color:var(--ink-dim)">(estimated)</span></h3>
+        <div class="perf">
+          <div class="row"><span>Top speed</span><b class="big" id="pTop">— mph</b></div>
+          <div class="row"><span>Current</span><b id="pCur">— mph</b></div>
+          <div class="row"><span>Gas mileage</span><b id="pMpg">— mpg</b></div>
+          <div class="row"><span>Power</span><b id="pPow">— hp</b></div>
+          <div class="row"><span>Smoothness</span><b id="pSmooth">—%</b></div>
+        </div>
+        <div class="note">Model: ~12 kW per piston, 2500 kg, Cd 0.45, frontal 3.2 m², diesel ~40% efficient. Rough estimates.</div>
+      </div>
+    </aside>
+    <div class="stage">
+      <div class="bar"><div class="ctl">Throttle <input id="throttle" type="range" min="0" max="100" step="1" value="55"></div></div>
+      <canvas id="cvTruck"></canvas>
+      <div class="hint" id="tkHint">Front view — fewer pistons make it lurch go-stop-go; turn off Body to see the guts</div>
+    </div>
+  </section>
+</main>
+<script>
+(function(){
+  "use strict";
+  const css=getComputedStyle(document.documentElement),C=k=>css.getPropertyValue(k).trim();
+  const COL={ink:C('--ink'),dim:C('--ink-dim'),line:C('--line'),amber:C('--amber'),amberHot:C('--amber-hot'),cyan:C('--cyan'),accent:C('--accent'),good:C('--good'),violet:C('--violet')};
+  const HUES=[188,32,268,142,0,210],uColor=i=>`hsl(${HUES[i%HUES.length]} 78% 62%)`;
+  function mk(id){const cv=document.getElementById(id);return{cv,ctx:cv.getContext('2d'),W:0,H:0};}
+  function resize(o){const DPR=Math.min(window.devicePixelRatio||1,2);const r=o.cv.getBoundingClientRect();if(!r.width)return;o.W=r.width;o.H=r.height;o.cv.width=Math.round(o.W*DPR);o.cv.height=Math.round(o.H*DPR);o.ctx.setTransform(DPR,0,0,DPR,0,0);}
+  function rr(ctx,x,y,w,h,r){r=Math.min(r,Math.abs(w)/2,Math.abs(h)/2);ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+  function txt(ctx,s,x,y,sz,col,al="left",sp=0){ctx.fillStyle=col;ctx.font=sz+"px ui-monospace, Menlo, Consolas, monospace";ctx.textBaseline="middle";if(sp){ctx.textAlign="left";let t=0;for(const c of s)t+=ctx.measureText(c).width+sp;let cx=al==="center"?x-t/2:al==="right"?x-t:x;for(const c of s){ctx.fillText(c,cx,y);cx+=ctx.measureText(c).width+sp;}}else{ctx.textAlign=al;ctx.fillText(s,x,y);}}
+  function flame(ctx,cx,cy,sc,al){ctx.save();ctx.globalAlpha=al;ctx.translate(cx,cy);ctx.scale(sc,sc);const g=ctx.createRadialGradient(0,4,1,0,0,16);g.addColorStop(0,COL.amberHot);g.addColorStop(.5,COL.amber);g.addColorStop(1,"rgba(255,90,40,0)");ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(-8,8);ctx.quadraticCurveTo(-5,-6,0,-14);ctx.quadraticCurveTo(5,-6,8,8);ctx.quadraticCurveTo(0,12,-8,8);ctx.fill();ctx.restore();}
+  function arcBlock(ctx,px,py,R,a,hw,th){const a1=a-hw,a2=a+hw,ro=R+th/2,ri=R-th/2;ctx.beginPath();ctx.arc(px,py,ro,a1,a2);ctx.arc(px,py,ri,a2,a1,true);ctx.closePath();}
+
+  const ENG={n:3};
+  const SWING=0.6, OMEGA_H=2*Math.PI*0.34;
+
+  // ---- reusable hammer unit, drawn in LOCAL frame: pivot at (0,0), hammer hangs +y ----
+  function drawUnit(ctx,L,th,ang,fl,fr,o){
+    const a0=Math.PI/2, mid=a0+ang;
+    if(o.arc){arcBlock(ctx,0,0,L,a0,SWING+0.16,th+16);ctx.fillStyle="rgba(123,208,255,.05)";ctx.fill();ctx.strokeStyle="rgba(123,208,255,.3)";ctx.lineWidth=1;ctx.stroke();}
+    [[-1,fl],[1,fr]].forEach(([e,f])=>{arcBlock(ctx,0,0,L,a0+e*SWING,0.12,th+8);ctx.fillStyle=o.combustion&&f>0.2?`rgba(255,140,60,${0.18+0.5*f})`:"rgba(16,28,44,.8)";ctx.fill();ctx.strokeStyle=COL.line;ctx.lineWidth=1;ctx.stroke();
+      if(o.combustion&&f>0.3){const fx=Math.cos(a0+e*SWING)*L,fy=Math.sin(a0+e*SWING)*L;flame(ctx,fx,fy,0.6+f*0.6,Math.min(1,f*1.3));}});
+    ctx.strokeStyle="#7c93ab";ctx.lineWidth=Math.max(4,th*0.28);ctx.lineCap="round";ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(mid)*(L-th/2),Math.sin(mid)*(L-th/2));ctx.stroke();
+    arcBlock(ctx,0,0,L,mid,0.11,th);const hg=ctx.createLinearGradient(0,-L,0,L);hg.addColorStop(0,"#aebfd2");hg.addColorStop(1,"#7e94ab");ctx.fillStyle=hg;ctx.fill();ctx.strokeStyle="#c3d3e6";ctx.lineWidth=1.1;ctx.stroke();
+    const rS=Math.max(9,th*0.7);
+    if(o.shaft){ctx.beginPath();ctx.arc(0,0,rS,0,7);ctx.fillStyle="rgba(84,201,138,.10)";ctx.fill();ctx.strokeStyle=COL.good;ctx.lineWidth=2;ctx.stroke();ctx.save();ctx.rotate(o.shaftAng||0);ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(rS*0.8,0);ctx.strokeStyle=COL.good;ctx.lineWidth=2.5;ctx.stroke();ctx.beginPath();ctx.arc(rS*0.62,0,3,0,7);ctx.fillStyle=COL.good;ctx.fill();ctx.restore();}
+    if(o.ratchet){const rR=rS+Math.max(9,th*0.45);ctx.save();ctx.rotate(o.shaftAng||0);const teeth=12;ctx.beginPath();for(let i=0;i<teeth;i++){const b=i/teeth*7,b2=(i+0.5)/teeth*7;ctx.lineTo(Math.cos(b)*rR,Math.sin(b)*rR);ctx.lineTo(Math.cos(b2)*(rR-5),Math.sin(b2)*(rR-5));}ctx.closePath();ctx.strokeStyle="rgba(57,213,208,.7)";ctx.lineWidth=1.3;ctx.stroke();ctx.restore();
+      const pr=rR+5;ctx.beginPath();ctx.moveTo(Math.cos(mid)*pr,Math.sin(mid)*pr);ctx.lineTo(Math.cos(mid)*pr+6,Math.sin(mid)*pr-2);ctx.lineTo(Math.cos(mid)*pr-2,Math.sin(mid)*pr-6);ctx.closePath();ctx.fillStyle=o.driving?COL.cyan:"#41566b";ctx.fill();}
+    ctx.beginPath();ctx.arc(0,0,Math.max(4,th*0.2),0,7);ctx.fillStyle="#1a2c40";ctx.fill();ctx.strokeStyle=COL.accent;ctx.lineWidth=1.2;ctx.stroke();
+  }
+
+  // ================= HAMMER PAGE =================
+  const Hm=mk('cvHammer');
+  const HM={playing:true,speed:1,t:0,shaft:0,view:'front',layers:{combustion:1,ratchet:1,shaft:1,arc:1,labels:1}};
+  const hphase=i=>i*(2*Math.PI/ENG.n);
+  const hAng=i=>SWING*Math.sin(HM.t*OMEGA_H+hphase(i));
+  const hVel=i=>Math.cos(HM.t*OMEGA_H+hphase(i));
+  function fInt(ang){const sn=ang/SWING;return[Math.pow(Math.max(0,-sn),4),Math.pow(Math.max(0,sn),4)];}
+
+  function drawHammer(){
+    const ctx=Hm.ctx,W=Hm.W,H=Hm.H;ctx.clearRect(0,0,W,H);const L=HM.layers;
+    if(HM.view==='front'){
+      const px=W*0.5,py=H*0.36,Lr=Math.min(H*0.38,W*0.24),th=36,ang=hAng(0),[fl,fr]=fInt(ang);
+      ctx.save();ctx.translate(px,py);drawUnit(ctx,Lr,th,ang,fl,fr,{arc:L.arc,combustion:L.combustion,ratchet:L.ratchet,shaft:L.shaft,shaftAng:HM.shaft,driving:hVel(0)>0});ctx.restore();
+      // flywheel to the side to show the spin
+      if(L.shaft){const fx=W*0.84,fy=py,R=Math.min(H*0.15,66);ctx.strokeStyle="#5c7890";ctx.lineWidth=11;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(px+10,py);ctx.lineTo(fx,fy);ctx.stroke();
+        ctx.beginPath();ctx.arc(fx,fy,R,0,7);ctx.fillStyle="rgba(84,201,138,.08)";ctx.fill();ctx.strokeStyle=COL.good;ctx.lineWidth=2;ctx.stroke();
+        ctx.save();ctx.translate(fx,fy);ctx.rotate(HM.shaft);for(let i=0;i<6;i++){ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(i/6*7)*R,Math.sin(i/6*7)*R);ctx.strokeStyle="rgba(84,201,138,.45)";ctx.lineWidth=2;ctx.stroke();}ctx.beginPath();ctx.arc(R-8,0,5,0,7);ctx.fillStyle=COL.good;ctx.fill();ctx.restore();
+        if(L.labels){txt(ctx,"FLYWHEEL",fx,fy+R+14,9,COL.dim,"center",1.5);txt(ctx,"DRIVESHAFT",(px+fx)/2,py-14,9,COL.good,"center",1.2);}}
+      if(L.labels){txt(ctx,"CURVED HEAD",px,py+Lr*0.6,9,"#9fb6cd","center",1);txt(ctx,"DIESEL",px-Lr*0.7,py+Lr*0.85,9,COL.dim,"center",1);txt(ctx,"DIESEL",px+Lr*0.7,py+Lr*0.85,9,COL.dim,"center",1);txt(ctx,"RATCHET grabs every other swing",px,H-34,10,COL.cyan,"center",1);}
+    } else {
+      // SIDE: vertical shaft, hammers rotated 90° (point right), stacked, phased
+      const n=ENG.n,sx=W*0.34,yTop=H*0.12,yBot=H*0.70,sp=(yBot-yTop)/n,Lr=Math.min(sp*0.42,W*0.16),th=Math.min(sp*0.20,22);
+      if(L.shaft){ctx.strokeStyle="#5c7890";ctx.lineWidth=12;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(sx,yTop-6);ctx.lineTo(sx,H*0.86);ctx.stroke();}
+      for(let i=0;i<n;i++){const py=yTop+sp*(i+0.5),ang=hAng(i),[fl,fr]=fInt(ang);
+        ctx.save();ctx.translate(sx,py);ctx.rotate(-Math.PI/2);
+        drawUnit(ctx,Lr,th,ang,fl,fr,{arc:L.arc,combustion:L.combustion,ratchet:L.ratchet,shaft:L.shaft,shaftAng:HM.shaft,driving:hVel(i)>0});
+        ctx.restore();
+        if(L.labels){txt(ctx,"P"+(i+1),sx-Lr-30,py,10,uColor(i),"left");txt(ctx,Math.round((hphase(i)*180/Math.PI)%360)+"°",sx-Lr-30,py+13,9,COL.dim,"left");}}
+      if(L.shaft){const fy=H*0.86,R=Math.min(H*0.09,52);ctx.beginPath();ctx.arc(sx,fy,R,0,7);ctx.fillStyle="rgba(84,201,138,.08)";ctx.fill();ctx.strokeStyle=COL.good;ctx.lineWidth=2;ctx.stroke();
+        ctx.save();ctx.translate(sx,fy);ctx.rotate(HM.shaft);for(let i=0;i<6;i++){ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(i/6*7)*R,Math.sin(i/6*7)*R);ctx.strokeStyle="rgba(84,201,138,.45)";ctx.lineWidth=2;ctx.stroke();}ctx.beginPath();ctx.arc(R-7,0,4,0,7);ctx.fillStyle=COL.good;ctx.fill();ctx.restore();
+        if(L.labels)txt(ctx,"FLYWHEEL",sx,fy+R+14,9,COL.dim,"center",1.5);}
+      txt(ctx,n+" PISTON"+(n>1?"S":"")+" · phased "+Math.round(360/n)+"° apart",W*0.62,H*0.5,12,COL.accent,"center",1);
+      txt(ctx,"hammers turned 90° along the shaft",W*0.62,H*0.5+22,9,COL.dim,"center",1);
+    }
+    document.getElementById('hmRead').textContent="shaft: "+(HM.shaft/(2*Math.PI)).toFixed(1)+" rev";
+  }
+  function hammerRate(){let s=0;for(let i=0;i<ENG.n;i++)s+=Math.max(0,hVel(i));return s;}
+
+  // ================= TRUCK PAGE =================
+  const Tk=mk('cvTruck');
+  const TRK={throttle:0.55,t:0,road:0,engShaft:0,layers:{body:1,glass:1,lights:1,engineTop:1,engine:1,shaft:1,wheels:1}};
+  const RHO=1.2,CD=0.45,AREA=3.2,CRR=0.012,MASS=2500,G=9.81,DRIVE=0.85,THERM=0.40;
+  function topSpeedMs(n){const P=n*12000*DRIVE;let lo=0,hi=130;for(let k=0;k<46;k++){const v=(lo+hi)/2;const need=0.5*RHO*CD*AREA*v*v*v+CRR*MASS*G*v;if(need>P)hi=v;else lo=v;}return lo;}
+  function mpgAt(v){if(v<2)return 0;const Pr=0.5*RHO*CD*AREA*v*v*v+CRR*MASS*G*v;const Pf=Pr/(THERM*0.9);const Ls=Pf/36e6;const Lpm=Ls/v;const gpm=Lpm*1609/3.785;return gpm>0?1/gpm:0;}
+  const smoothFrac=n=>Math.min(0.95,1-0.8/n);
+  // go-stop-go pulse factor (around 1, dips toward 0 between pulses for low n)
+  function pulseFactor(){const n=ENG.n,om=2*Math.PI*1.1*(0.35+TRK.throttle);let sum=0;for(let i=0;i<n;i++){const th=TRK.t*om+i*2*Math.PI/n;sum+=Math.pow(Math.max(0,Math.sin(th)),4);}return Math.max(0,Math.min(3,sum/(0.1875*n)));}
+
+  function drawTruck(){
+    const ctx=Tk.ctx,W=Tk.W,H=Tk.H;ctx.clearRect(0,0,W,H);
+    const n=ENG.n,vmax=topSpeedMs(n),v=TRK.throttle*vmax,mph=v*2.237,sm=smoothFrac(n),Ly=TRK.layers;
+    const factor=pulseFactor();
+    const cx=W*0.5,ground=H*0.84;
+    // road
+    const g=ctx.createLinearGradient(0,H*0.40,0,H);g.addColorStop(0,"#0c1320");g.addColorStop(1,"#070b12");ctx.fillStyle=g;ctx.fillRect(0,H*0.40,W,H);
+    ctx.strokeStyle="rgba(34,53,76,.7)";ctx.beginPath();ctx.moveTo(0,ground+H*0.02);ctx.lineTo(W,ground+H*0.02);ctx.stroke();
+    ctx.strokeStyle="rgba(255,208,140,.45)";ctx.lineWidth=3;ctx.setLineDash([24,20]);ctx.lineDashOffset=-TRK.road;ctx.beginPath();ctx.moveTo(cx,ground+H*0.04);ctx.lineTo(cx,H);ctx.stroke();ctx.setLineDash([]);
+
+    // forward lurch (go-stop-go): vertical bob synced to power pulse, scaled by jerkiness
+    const bob=(factor-1)*(1-sm)*H*0.012;
+    ctx.save();ctx.translate(0,-bob);
+
+    const bodyHalf=W*0.235,roofHalf=W*0.15,baseY=ground-H*0.02,grilleTop=H*0.34,roofY=H*0.15,bumperY=H*0.60;
+    const wheelY=baseY,wheelR=H*0.115,wheelX=bodyHalf;
+
+    // ---- axle + spinning driveshaft (behind) ----
+    if(Ly.shaft){
+      ctx.strokeStyle="#8aa0b6";ctx.lineWidth=6;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(cx-wheelX,wheelY);ctx.lineTo(cx+wheelX,wheelY);ctx.stroke();
+      const sy=baseY-H*0.045,sx0=cx-W*0.10,sx1=cx+W*0.10,sh=H*0.034;
+      ctx.save();rr(ctx,sx0,sy-sh/2,sx1-sx0,sh,sh/2);ctx.fillStyle="rgba(84,201,138,.16)";ctx.fill();ctx.clip();
+      ctx.strokeStyle=COL.good;ctx.lineWidth=4;const off=TRK.road%24;for(let x=sx0-30;x<sx1+30;x+=18){ctx.beginPath();ctx.moveTo(x+off,sy-sh/2);ctx.lineTo(x+off+sh*1.4,sy+sh/2);ctx.stroke();}ctx.restore();
+      rr(ctx,sx0,sy-sh/2,sx1-sx0,sh,sh/2);ctx.strokeStyle=COL.good;ctx.lineWidth=1.5;ctx.stroke();
+      txt(ctx,"DRIVESHAFT (spinning)",cx,sy+H*0.038,9,COL.good,"center",1);
+    }
+
+    // ---- tires: SOLID BLACK, front-facing ----
+    function tire(wx){
+      rr(ctx,wx-W*0.05,wheelY-wheelR,W*0.10,wheelR*2,W*0.028);ctx.fillStyle="#05070b";ctx.fill();ctx.strokeStyle="#2c3f55";ctx.lineWidth=3;ctx.stroke();
+      ctx.save();rr(ctx,wx-W*0.05,wheelY-wheelR,W*0.10,wheelR*2,W*0.028);ctx.clip();
+      ctx.strokeStyle="rgba(120,140,165,.45)";ctx.lineWidth=3;const off=TRK.road%18;for(let y=wheelY-wheelR-18;y<wheelY+wheelR+18;y+=12){ctx.beginPath();ctx.moveTo(wx-W*0.05,y+off);ctx.lineTo(wx+W*0.05,y+off);ctx.stroke();}ctx.restore();
+      ctx.beginPath();ctx.arc(wx,wheelY,W*0.02,0,7);ctx.fillStyle="#1c2632";ctx.fill();ctx.strokeStyle="#6c8198";ctx.lineWidth=2;ctx.stroke();
+    }
+    if(Ly.wheels){tire(cx-wheelX);tire(cx+wheelX);}
+
+    // ---- engine = your hammer mechanism (front view) ----
+    if(Ly.engine){
+      const ecx=cx,ecy=grilleTop+H*0.07,L=Math.min(H*0.13,W*0.075),th=L*0.5;
+      const om=2*Math.PI*1.1*(0.35+TRK.throttle),ang=SWING*Math.sin(TRK.t*om),[fl,fr]=fInt(ang);
+      if(!Ly.engineTop){
+        ctx.save();ctx.translate(ecx,ecy);drawUnit(ctx,L,th,ang,fl,fr,{arc:1,combustion:1,ratchet:1,shaft:1,shaftAng:TRK.engShaft,driving:Math.cos(TRK.t*om)>0});ctx.restore();
+        txt(ctx,"YOUR HAMMER ENGINE",cx,grilleTop-H*0.01,9,COL.amberHot,"center",1.2);
+      } else {
+        rr(ctx,ecx-L-8,ecy-L*0.4,(L+8)*2,L*1.5,8);ctx.fillStyle="#26313e";ctx.fill();ctx.strokeStyle=COL.amber;ctx.lineWidth=1.5;ctx.stroke();
+        rr(ctx,ecx-L,ecy-L*0.4-8,L*2,14,5);ctx.fillStyle="#b9863f";ctx.fill();ctx.strokeStyle=COL.amberHot;ctx.lineWidth=1.5;ctx.stroke();
+        txt(ctx,"ENGINE",cx,ecy+L*0.95,10,COL.amberHot,"center",1.5);
+      }
+    }
+
+    // (seats removed)
+
+    // ---- body: SOLID steel, with cabin ----
+    if(Ly.body){
+      const steel=ctx.createLinearGradient(0,roofY,0,baseY);steel.addColorStop(0,"#2b425c");steel.addColorStop(1,"#172536");
+      // cabin
+      ctx.beginPath();ctx.moveTo(cx-roofHalf,roofY+H*0.02);ctx.quadraticCurveTo(cx-roofHalf,roofY,cx-roofHalf+12,roofY);ctx.lineTo(cx+roofHalf-12,roofY);ctx.quadraticCurveTo(cx+roofHalf,roofY,cx+roofHalf,roofY+H*0.02);ctx.lineTo(cx+roofHalf,grilleTop);ctx.lineTo(cx-roofHalf,grilleTop);ctx.closePath();ctx.fillStyle=steel;ctx.fill();ctx.strokeStyle="#3d5a72";ctx.lineWidth=2;ctx.stroke();
+      // slab
+      ctx.beginPath();ctx.moveTo(cx-bodyHalf,baseY-H*0.02);ctx.lineTo(cx-bodyHalf,grilleTop);ctx.lineTo(cx+bodyHalf,grilleTop);ctx.lineTo(cx+bodyHalf,baseY-H*0.02);ctx.quadraticCurveTo(cx+bodyHalf,baseY,cx+bodyHalf-14,baseY);ctx.lineTo(cx-bodyHalf+14,baseY);ctx.quadraticCurveTo(cx-bodyHalf,baseY,cx-bodyHalf,baseY-H*0.02);ctx.closePath();ctx.fillStyle=steel;ctx.fill();ctx.strokeStyle="#3d5a72";ctx.lineWidth=2;ctx.stroke();
+      // SOLID BLACK fender flares over each tire
+      [-1,1].forEach(s=>{const wx=cx+s*wheelX;ctx.beginPath();ctx.moveTo(wx-W*0.07,baseY);ctx.lineTo(wx-W*0.07,baseY-wheelR*0.5);ctx.arc(wx,baseY-wheelR*0.5,W*0.07,Math.PI,0,false);ctx.lineTo(wx+W*0.07,baseY);ctx.closePath();ctx.fillStyle="#05070b";ctx.fill();ctx.strokeStyle="#1d2c3e";ctx.lineWidth=2;ctx.stroke();});
+    }
+    // ---- grille + lights + bumper ----
+    if(Ly.lights&&Ly.body){
+      rr(ctx,cx-W*0.10,grilleTop+H*0.06,W*0.20,H*0.13,6);ctx.fillStyle="#080c12";ctx.fill();ctx.strokeStyle="rgba(123,208,255,.5)";ctx.lineWidth=1.5;ctx.stroke();
+      for(let i=1;i<5;i++){const gy=grilleTop+H*0.06+H*0.13*i/5;ctx.beginPath();ctx.moveTo(cx-W*0.095,gy);ctx.lineTo(cx+W*0.095,gy);ctx.strokeStyle="rgba(150,180,205,.5)";ctx.lineWidth=2;ctx.stroke();}
+      [-1,1].forEach(s=>{rr(ctx,cx+s*W*0.155-W*0.038,grilleTop+H*0.055,W*0.076,H*0.05,5);ctx.fillStyle="#ffe6a8";ctx.fill();ctx.strokeStyle="#caa24a";ctx.lineWidth=1.5;ctx.stroke();});
+      rr(ctx,cx-bodyHalf-W*0.005,bumperY,bodyHalf*2+W*0.01,H*0.05,5);ctx.fillStyle="#0a0e15";ctx.fill();ctx.strokeStyle="#2c3f55";ctx.lineWidth=1.5;ctx.stroke();
+    }
+    // ---- glass ----
+    if(Ly.glass&&Ly.body){ctx.beginPath();ctx.moveTo(cx-roofHalf+14,roofY+H*0.02);ctx.lineTo(cx+roofHalf-14,roofY+H*0.02);ctx.lineTo(cx+roofHalf-20,grilleTop-H*0.01);ctx.lineTo(cx-roofHalf+20,grilleTop-H*0.01);ctx.closePath();ctx.fillStyle="#1f4763";ctx.fill();ctx.strokeStyle="#3d5a72";ctx.lineWidth=1.5;ctx.stroke();ctx.beginPath();ctx.moveTo(cx,roofY+H*0.02);ctx.lineTo(cx,grilleTop-H*0.01);ctx.strokeStyle="#2c4256";ctx.lineWidth=1.5;ctx.stroke();}
+
+    ctx.restore();
+
+    // HUD
+    txt(ctx,String(Math.round(mph)).padStart(3,'0'),W-24,42,40,COL.accent,"right");
+    txt(ctx,"MPH",W-24,70,11,COL.dim,"right",2);
+    const stripped=!(Ly.body||Ly.glass);
+    txt(ctx,stripped?"ROLLING CHASSIS — bare essentials":"FULL PICKUP",24,H-24,11,stripped?COL.good:COL.dim,"left",1.2);
+    if((1-sm)>0.34&&TRK.throttle>0.05) txt(ctx,"⚠ LURCHING go-stop-go — add pistons",24,H-44,10,COL.amber,"left",1);
+
+    document.getElementById('pTop').textContent=Math.round(vmax*2.237)+" mph";
+    document.getElementById('pCur').textContent=Math.round(mph)+" mph";
+    document.getElementById('pMpg').textContent=(v>1?mpgAt(v).toFixed(0):"—")+" mpg";
+    document.getElementById('pPow').textContent=Math.round(n*12*1.341)+" hp";
+    document.getElementById('pSmooth').textContent=Math.round(sm*100)+"%";
+  }
+
+  // ================= LOOP =================
+  let active='hammer',last=performance.now();
+  function loop(now){
+    const dt=Math.min((now-last)/1000,0.05);last=now;
+    if(HM.playing){HM.t+=dt*HM.speed;HM.shaft+=dt*HM.speed*0.9*hammerRate();}
+    const n=ENG.n,vmax=topSpeedMs(n),v=TRK.throttle*vmax,factor=pulseFactor();
+    TRK.t+=dt;TRK.road+=dt*(8+v*4)*factor;TRK.engShaft+=dt*1.6*(0.35+TRK.throttle)*factor;
+    if(active==='hammer')drawHammer();else drawTruck();
+    requestAnimationFrame(loop);
+  }
+  function show(p){active=p;document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.p===p));document.querySelectorAll('.page').forEach(s=>s.classList.toggle('on',s.id==='page-'+p));const m={hammer:Hm,truck:Tk};requestAnimationFrame(()=>resize(m[p]));}
+  document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>show(b.dataset.p));
+  window.addEventListener('resize',()=>{const m={hammer:Hm,truck:Tk};resize(m[active]);});
+
+  const hmPlay=document.getElementById('hmPlay');
+  hmPlay.onclick=()=>{HM.playing=!HM.playing;hmPlay.textContent=HM.playing?"❚❚ Pause":"▶ Play";hmPlay.classList.toggle('run',HM.playing);};
+  document.getElementById('hmReset').onclick=()=>{HM.t=0;HM.shaft=0;};
+  document.getElementById('hmSpeed').oninput=e=>HM.speed=parseFloat(e.target.value);
+  document.querySelectorAll('[data-hl]').forEach(l=>l.onclick=()=>{const k=l.dataset.hl;HM.layers[k]=!HM.layers[k];l.classList.toggle('on',HM.layers[k]);});
+  document.querySelectorAll('#hmView .seg').forEach(s=>s.onclick=()=>{document.querySelectorAll('#hmView .seg').forEach(x=>x.classList.remove('on'));s.classList.add('on');HM.view=s.dataset.v;document.getElementById('hmHint').textContent=HM.view==='front'?"Front view — the curved head rides the arc; the shaft is the circle behind it":"Side view — hammers turned 90°; more pistons steady the flywheel";});
+
+  function setPist(v){ENG.n=Math.max(1,Math.min(6,v));document.getElementById('hmPist').textContent=ENG.n;document.getElementById('tkPist').textContent=ENG.n;}
+  document.getElementById('hmMinus').onclick=()=>setPist(ENG.n-1);
+  document.getElementById('hmPlus').onclick=()=>setPist(ENG.n+1);
+  document.getElementById('tkMinus').onclick=()=>setPist(ENG.n-1);
+  document.getElementById('tkPlus').onclick=()=>setPist(ENG.n+1);
+
+  document.getElementById('throttle').oninput=e=>TRK.throttle=parseInt(e.target.value)/100;
+  document.querySelectorAll('[data-cl]').forEach(l=>l.onclick=()=>{const k=l.dataset.cl;TRK.layers[k]=!TRK.layers[k];l.classList.toggle('on',TRK.layers[k]);});
+  function setL(k,v){TRK.layers[k]=v;const el=document.querySelector(`[data-cl="${k}"]`);if(el)el.classList.toggle('on',v);}
+  document.getElementById('strip').onclick=()=>{['body','glass','lights','engineTop'].forEach(k=>setL(k,false));};
+  document.getElementById('restore').onclick=()=>{Object.keys(TRK.layers).forEach(k=>setL(k,true));};
+
+  resize(Hm);resize(Tk);show('hammer');requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
